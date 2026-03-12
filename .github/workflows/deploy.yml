@@ -97,7 +97,7 @@ jobs:
           X3NEWS_LOG_LEVEL="${X3NEWS_LOG_LEVEL:-INFO}"
           X3NEWS_LOG_FORMAT="${X3NEWS_LOG_FORMAT:-json}"
           X3NEWS_CLIENT_TOKENS_JSON="${X3NEWS_CLIENT_TOKENS_JSON:-{}}"
-          X3NEWS_CLIENT_TOKENS_JSON="$(printf '%s' "$X3NEWS_CLIENT_TOKENS_JSON" | python3 -c 'import json, sys; print(json.dumps(json.loads(sys.stdin.read()), separators=(",", ":")))' )"
+          X3NEWS_CLIENT_TOKENS_JSON="$(printf '%s' "$X3NEWS_CLIENT_TOKENS_JSON" | tr -d '\r\n' | python3 -c 'import json, sys; print(json.dumps(json.loads(sys.stdin.read()), separators=(",", ":")))' )"
 
           ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash <<EOF
           set -eu
