@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+__pycache__
+tests
+markdown_archive
+x3news_downloads
+debug_first.html
+document_parser.py
+liveSearch.js
+main.js
+ws_test_client.html
+.DS_Store

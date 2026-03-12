@@ -1,0 +1,128 @@
+name: Deploy X3News WebSocket
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy.yml"
+      - ".dockerignore"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "requirements-websocket.txt"
+      - "x3news_feed.py"
+      - "x3news_store.py"
+      - "x3news_websocket.py"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.HETZNER_HOST }}
+      DEPLOY_USER: ${{ secrets.HETZNER_USER }}
+      DEPLOY_PORT: ${{ secrets.HETZNER_PORT }}
+      DEPLOY_PATH: ${{ vars.HETZNER_DEPLOY_PATH }}
+      X3NEWS_PORT: ${{ vars.X3NEWS_PORT }}
+      X3NEWS_LANGUAGE: ${{ vars.X3NEWS_LANGUAGE }}
+      X3NEWS_POLL_INTERVAL: ${{ vars.X3NEWS_POLL_INTERVAL }}
+      X3NEWS_TIMEOUT: ${{ vars.X3NEWS_TIMEOUT }}
+      X3NEWS_INSECURE: ${{ vars.X3NEWS_INSECURE }}
+      X3NEWS_SNAPSHOT_SIZE: ${{ vars.X3NEWS_SNAPSHOT_SIZE }}
+      X3NEWS_LISTING_SIZE: ${{ vars.X3NEWS_LISTING_SIZE }}
+      X3NEWS_MAX_SEEN_IDS: ${{ vars.X3NEWS_MAX_SEEN_IDS }}
+      X3NEWS_REPLAY_MAX_ITEMS: ${{ vars.X3NEWS_REPLAY_MAX_ITEMS }}
+      X3NEWS_DB_PATH: ${{ vars.X3NEWS_DB_PATH }}
+      X3NEWS_PING_INTERVAL: ${{ vars.X3NEWS_PING_INTERVAL }}
+      X3NEWS_PING_TIMEOUT: ${{ vars.X3NEWS_PING_TIMEOUT }}
+      X3NEWS_LOG_LEVEL: ${{ vars.X3NEWS_LOG_LEVEL }}
+      X3NEWS_LOG_FORMAT: ${{ vars.X3NEWS_LOG_FORMAT }}
+      X3NEWS_CLIENT_TOKENS_JSON: ${{ secrets.X3NEWS_CLIENT_TOKENS_JSON }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "${{ secrets.HETZNER_SSH_KEY }}"
+
+      - name: Create deployment bundle
+        run: |
+          mkdir -p dist
+          tar -czf dist/x3news-websocket.tar.gz \
+            Dockerfile \
+            docker-compose.yml \
+            requirements-websocket.txt \
+            x3news_feed.py \
+            x3news_store.py \
+            x3news_websocket.py
+
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.HETZNER_SSH_KEY }}
+
+      - name: Add Hetzner host key
+        run: |
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload bundle
+        run: |
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          rsync -avz -e "ssh -p $DEPLOY_PORT" \
+            dist/x3news-websocket.tar.gz \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/x3news-websocket.tar.gz"
+
+      - name: Deploy on Hetzner
+        run: |
+          DEPLOY_PORT="${DEPLOY_PORT:-22}"
+          DEPLOY_PATH="${DEPLOY_PATH:-/opt/x3news-websocket}"
+          X3NEWS_PORT="${X3NEWS_PORT:-8765}"
+          X3NEWS_LANGUAGE="${X3NEWS_LANGUAGE:-en}"
+          X3NEWS_POLL_INTERVAL="${X3NEWS_POLL_INTERVAL:-30}"
+          X3NEWS_TIMEOUT="${X3NEWS_TIMEOUT:-20}"
+          X3NEWS_INSECURE="${X3NEWS_INSECURE:-true}"
+          X3NEWS_SNAPSHOT_SIZE="${X3NEWS_SNAPSHOT_SIZE:-5}"
+          X3NEWS_LISTING_SIZE="${X3NEWS_LISTING_SIZE:-15}"
+          X3NEWS_MAX_SEEN_IDS="${X3NEWS_MAX_SEEN_IDS:-5000}"
+          X3NEWS_REPLAY_MAX_ITEMS="${X3NEWS_REPLAY_MAX_ITEMS:-100}"
+          X3NEWS_DB_PATH="${X3NEWS_DB_PATH:-/data/x3news.db}"
+          X3NEWS_PING_INTERVAL="${X3NEWS_PING_INTERVAL:-20}"
+          X3NEWS_PING_TIMEOUT="${X3NEWS_PING_TIMEOUT:-20}"
+          X3NEWS_LOG_LEVEL="${X3NEWS_LOG_LEVEL:-INFO}"
+          X3NEWS_LOG_FORMAT="${X3NEWS_LOG_FORMAT:-json}"
+          X3NEWS_CLIENT_TOKENS_JSON="${X3NEWS_CLIENT_TOKENS_JSON:-{}}"
+
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash <<EOF
+          set -eu
+          DEPLOY_PATH="$DEPLOY_PATH"
+          mkdir -p "\$DEPLOY_PATH"
+          tar -xzf /tmp/x3news-websocket.tar.gz -C "\$DEPLOY_PATH"
+          cat > "\$DEPLOY_PATH/.env" <<ENVEOF
+          X3NEWS_HOST=0.0.0.0
+          X3NEWS_PORT=$X3NEWS_PORT
+          X3NEWS_LANGUAGE=$X3NEWS_LANGUAGE
+          X3NEWS_POLL_INTERVAL=$X3NEWS_POLL_INTERVAL
+          X3NEWS_TIMEOUT=$X3NEWS_TIMEOUT
+          X3NEWS_INSECURE=$X3NEWS_INSECURE
+          X3NEWS_SNAPSHOT_SIZE=$X3NEWS_SNAPSHOT_SIZE
+          X3NEWS_LISTING_SIZE=$X3NEWS_LISTING_SIZE
+          X3NEWS_MAX_SEEN_IDS=$X3NEWS_MAX_SEEN_IDS
+          X3NEWS_REPLAY_MAX_ITEMS=$X3NEWS_REPLAY_MAX_ITEMS
+          X3NEWS_DB_PATH=$X3NEWS_DB_PATH
+          X3NEWS_PING_INTERVAL=$X3NEWS_PING_INTERVAL
+          X3NEWS_PING_TIMEOUT=$X3NEWS_PING_TIMEOUT
+          X3NEWS_LOG_LEVEL=$X3NEWS_LOG_LEVEL
+          X3NEWS_LOG_FORMAT=$X3NEWS_LOG_FORMAT
+          X3NEWS_CLIENT_TOKENS_JSON=$X3NEWS_CLIENT_TOKENS_JSON
+          ENVEOF
+          cd "\$DEPLOY_PATH"
+          docker network inspect web-proxy >/dev/null 2>&1 || docker network create web-proxy
+          docker compose up -d --build
+          rm -f /tmp/x3news-websocket.tar.gz
+          EOF

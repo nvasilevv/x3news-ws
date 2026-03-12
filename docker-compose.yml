@@ -1,0 +1,39 @@
+services:
+  x3news-websocket:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: x3news-websocket:latest
+    container_name: x3news-websocket
+    restart: unless-stopped
+    environment:
+      X3NEWS_HOST: ${X3NEWS_HOST:-0.0.0.0}
+      X3NEWS_PORT: ${X3NEWS_PORT:-8765}
+      X3NEWS_LANGUAGE: ${X3NEWS_LANGUAGE:-en}
+      X3NEWS_POLL_INTERVAL: ${X3NEWS_POLL_INTERVAL:-30}
+      X3NEWS_TIMEOUT: ${X3NEWS_TIMEOUT:-20}
+      X3NEWS_INSECURE: ${X3NEWS_INSECURE:-true}
+      X3NEWS_SNAPSHOT_SIZE: ${X3NEWS_SNAPSHOT_SIZE:-5}
+      X3NEWS_LISTING_SIZE: ${X3NEWS_LISTING_SIZE:-15}
+      X3NEWS_MAX_SEEN_IDS: ${X3NEWS_MAX_SEEN_IDS:-5000}
+      X3NEWS_REPLAY_MAX_ITEMS: ${X3NEWS_REPLAY_MAX_ITEMS:-100}
+      X3NEWS_DB_PATH: ${X3NEWS_DB_PATH:-/data/x3news.db}
+      X3NEWS_PING_INTERVAL: ${X3NEWS_PING_INTERVAL:-20}
+      X3NEWS_PING_TIMEOUT: ${X3NEWS_PING_TIMEOUT:-20}
+      X3NEWS_LOG_LEVEL: ${X3NEWS_LOG_LEVEL:-INFO}
+      X3NEWS_LOG_FORMAT: ${X3NEWS_LOG_FORMAT:-json}
+      X3NEWS_CLIENT_TOKENS_JSON: ${X3NEWS_CLIENT_TOKENS_JSON:-{}}
+    ports:
+      - "${X3NEWS_PORT:-8765}:${X3NEWS_PORT:-8765}"
+    volumes:
+      - x3news-data:/data
+    networks:
+      - default
+      - web-proxy
+
+volumes:
+  x3news-data:
+
+networks:
+  web-proxy:
+    external: true
