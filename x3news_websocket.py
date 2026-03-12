@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import logging
 import os
@@ -50,6 +51,17 @@ def env_json(name: str, default: dict[str, str] | None = None) -> dict[str, str]
     if not isinstance(parsed, dict):
         raise ValueError(f"{name} must be a JSON object mapping client ids to tokens")
     return {str(key): str(token) for key, token in parsed.items()}
+
+
+def env_client_tokens(default: dict[str, str] | None = None) -> dict[str, str]:
+    encoded = os.getenv("X3NEWS_CLIENT_TOKENS_B64")
+    if encoded:
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        parsed = json.loads(decoded)
+        if not isinstance(parsed, dict):
+            raise ValueError("X3NEWS_CLIENT_TOKENS_B64 must decode to a JSON object")
+        return {str(key): str(token) for key, token in parsed.items()}
+    return env_json("X3NEWS_CLIENT_TOKENS_JSON", default)
 
 
 def utc_now_iso() -> str:
@@ -521,7 +533,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--client-tokens-json",
-        default=env_json("X3NEWS_CLIENT_TOKENS_JSON", {}),
+        default=env_client_tokens({}),
         type=json.loads,
         help="JSON object mapping client ids to websocket auth tokens",
     )

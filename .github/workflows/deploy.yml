@@ -38,6 +38,7 @@ jobs:
       X3NEWS_LOG_LEVEL: ${{ vars.X3NEWS_LOG_LEVEL }}
       X3NEWS_LOG_FORMAT: ${{ vars.X3NEWS_LOG_FORMAT }}
       X3NEWS_CLIENT_TOKENS_JSON: ${{ secrets.X3NEWS_CLIENT_TOKENS_JSON }}
+      X3NEWS_CLIENT_TOKENS_B64: ${{ secrets.X3NEWS_CLIENT_TOKENS_B64 }}
 
     steps:
       - name: Checkout
@@ -97,7 +98,13 @@ jobs:
           X3NEWS_LOG_LEVEL="${X3NEWS_LOG_LEVEL:-INFO}"
           X3NEWS_LOG_FORMAT="${X3NEWS_LOG_FORMAT:-json}"
           X3NEWS_CLIENT_TOKENS_JSON="${X3NEWS_CLIENT_TOKENS_JSON:-{}}"
-          X3NEWS_CLIENT_TOKENS_JSON="$(printf '%s' "$X3NEWS_CLIENT_TOKENS_JSON" | tr -d '\r\n' | python3 -c 'import json, sys; print(json.dumps(json.loads(sys.stdin.read()), separators=(",", ":")))' )"
+          X3NEWS_CLIENT_TOKENS_B64="${X3NEWS_CLIENT_TOKENS_B64:-}"
+
+          if [ -n "$X3NEWS_CLIENT_TOKENS_B64" ]; then
+            X3NEWS_CLIENT_TOKENS_B64="$(printf '%s' "$X3NEWS_CLIENT_TOKENS_B64" | tr -d '\r\n')"
+          else
+            X3NEWS_CLIENT_TOKENS_JSON="$(printf '%s' "$X3NEWS_CLIENT_TOKENS_JSON" | tr -d '\r\n' | python3 -c 'import json, sys; print(json.dumps(json.loads(sys.stdin.read()), separators=(",", ":")))' )"
+          fi
 
           ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash <<EOF
           set -eu
@@ -121,6 +128,7 @@ jobs:
           X3NEWS_LOG_LEVEL=$X3NEWS_LOG_LEVEL
           X3NEWS_LOG_FORMAT=$X3NEWS_LOG_FORMAT
           X3NEWS_CLIENT_TOKENS_JSON='$X3NEWS_CLIENT_TOKENS_JSON'
+          X3NEWS_CLIENT_TOKENS_B64=$X3NEWS_CLIENT_TOKENS_B64
           ENVEOF
           cd "\$DEPLOY_PATH"
           docker network inspect web-proxy >/dev/null 2>&1 || docker network create web-proxy
