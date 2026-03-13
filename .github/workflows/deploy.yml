@@ -23,6 +23,8 @@ jobs:
       DEPLOY_USER: ${{ secrets.HETZNER_USER }}
       DEPLOY_PORT: ${{ secrets.HETZNER_PORT }}
       DEPLOY_PATH: ${{ vars.HETZNER_DEPLOY_PATH }}
+      CADDY_DEPLOY_PATH: ${{ vars.CADDY_DEPLOY_PATH }}
+      CADDY_SERVICE_NAME: ${{ vars.CADDY_SERVICE_NAME }}
       X3NEWS_PORT: ${{ vars.X3NEWS_PORT }}
       X3NEWS_LANGUAGE: ${{ vars.X3NEWS_LANGUAGE }}
       X3NEWS_POLL_INTERVAL: ${{ vars.X3NEWS_POLL_INTERVAL }}
@@ -83,6 +85,8 @@ jobs:
         run: |
           DEPLOY_PORT="${DEPLOY_PORT:-22}"
           DEPLOY_PATH="${DEPLOY_PATH:-/opt/x3news-websocket}"
+          CADDY_DEPLOY_PATH="${CADDY_DEPLOY_PATH:-/root/n8n-server}"
+          CADDY_SERVICE_NAME="${CADDY_SERVICE_NAME:-caddy}"
           X3NEWS_PORT="${X3NEWS_PORT:-8765}"
           X3NEWS_LANGUAGE="${X3NEWS_LANGUAGE:-en}"
           X3NEWS_POLL_INTERVAL="${X3NEWS_POLL_INTERVAL:-30}"
@@ -133,5 +137,9 @@ jobs:
           cd "\$DEPLOY_PATH"
           docker network inspect web-proxy >/dev/null 2>&1 || docker network create web-proxy
           docker compose up -d --build
+          if [ -f "$CADDY_DEPLOY_PATH/docker-compose.yml" ]; then
+            cd "$CADDY_DEPLOY_PATH"
+            docker compose up -d --force-recreate "$CADDY_SERVICE_NAME"
+          fi
           rm -f /tmp/x3news-websocket.tar.gz
           EOF
